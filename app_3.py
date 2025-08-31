@@ -284,20 +284,56 @@ if uploaded_file:
                 col4.metric("Selected to Keep", selected_records, f"{selected_records/total_records*100:.1f}%")
                 
                 # Similarity distribution chart
-                st.subheader("📈 Similarity Score Distribution")
-                similarity_scores = df_processed["similarity_score"]
-                hist_data = pd.cut(similarity_scores, 
-                                 bins=[0, 0.4, 0.6, 0.8, 0.95, 1.0], 
-                                 labels=["Low (0-0.4)", "Medium (0.4-0.6)", "High (0.6-0.8)", "Very High (0.8-0.95)", "Exact (0.95-1.0)"])
-                dist_counts = hist_data.value_counts().sort_index()
-                st.bar_chart(dist_counts)
-                
-                # --- Filters ---
-                st.subheader("🎯 Filter Options")
+                st.subheader("📈 Data Visualization")
                 
                 col1, col2 = st.columns(2)
                 
                 with col1:
+                    st.write("**Similarity Score Distribution**")
+                    similarity_scores = df_processed["similarity_score"]
+                    hist_data = pd.cut(similarity_scores, 
+                                     bins=[0, 0.4, 0.6, 0.8, 0.95, 1.0], 
+                                     labels=["Low (0-0.4)", "Medium (0.4-0.6)", "High (0.6-0.8)", "Very High (0.8-0.95)", "Exact (0.95-1.0)"])
+                    dist_counts = hist_data.value_counts().sort_index()
+                    st.bar_chart(dist_counts)
+                
+                with col2:
+                    st.write("**Duplicate Status Distribution**")
+                    status_counts = df_processed["duplicate_status"].value_counts()
+                    
+                    # Create pie chart visualization
+                    pie_chart_data = []
+                    colors = []
+                    for status, count in status_counts.items():
+                        percentage = count / len(df_processed) * 100
+                        pie_chart_data.append(f"{status.title()}: {count} ({percentage:.1f}%)")
+                        colors.append("#ff6b6b" if status == "duplicate" else "#51cf66")
+                    
+                    # Simple text-based pie chart representation
+                    st.write("**📊 Status Breakdown:**")
+                    for i, (status, count) in enumerate(status_counts.items()):
+                        percentage = count / len(df_processed) * 100
+                        # Create a simple bar representation
+                        bar_length = int(percentage / 2)  # Scale down for display
+                        bar = "█" * bar_length + "░" * (50 - bar_length)
+                        color = "🔴" if status == "duplicate" else "🟢"
+                        st.write(f"{color} **{status.title()}**: {count} records ({percentage:.1f}%)")
+                        st.write(f"   {bar}")
+                    
+                    # Also show the raw chart data
+                    chart_data = pd.DataFrame({
+                        'Status': status_counts.index,
+                        'Count': status_counts.values
+                    })
+                    st.bar_chart(chart_data.set_index('Status'))
+                
+                # --- Filters ---
+                st.subheader("🎯 Advanced Filter Options")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**Status & Similarity Filters**")
                     status_filter = st.multiselect(
                         "Filter by Status:",
                         ["unique", "duplicate"],
@@ -310,44 +346,185 @@ if uploaded_file:
                     )
                 
                 with col2:
+                    st.write("**Content Filters**")
                     show_only_selected = st.checkbox("Show only records marked to keep", False)
                     show_features = st.checkbox("Show extracted features", False)
                 
-                # Apply filters
+                # --- Text/Word Search Filters ---
+                st.write("**🔍 Search & Select by Words/Letters**")
+                
+                search_col1, search_col2, search_col3 = st.columns(3)
+                
+                with search_col1:
+                    search_text = st.text_input(
+                        "Search in descriptions:",
+                        placeholder="e.g. CHILLI, SPI-, (ME), etc.",
+                        help="Enter words or letters to search for in material descriptions"
+                    )
+                    
+                    search_mode = st.selectbox(
+                        "Search Mode:",
+                        ["Contains", "Starts with", "Ends with", "Exact match"],
+                        help="How to match your search text"
+                    )
+                
+                with search_col2:
+                    if search_text:
+                        # Count matches
+                        if search_mode == "Contains":
+                            matches = df_processed[df_processed[desc_col].str.contains(search_text, case=False, na=False)]
+                        elif search_mode == "Starts with":
+                            matches = df_processed[df_processed[desc_col].str.startswith(search_text, na=False)]
+                        elif search_mode == "Ends with":
+                            matches = df_processed[df_processed[desc_col].str.endswith(search_text, na=False)]
+                        else:  # Exact match
+                            matches = df_processed[df_processed[desc_col].str.lower() == search_text.lower()]
+                        
+                        st.metric("Search Results", len(matches))
+                        
+                        if len(matches) > 0:
+                            if st.button("✅ Select All Search Results"):
+                                # Select all matching records
+                                mask = df_processed[desc_col].isin(matches[desc_col])
+                                df_processed.loc[mask, "keep_record"] = True
+                                st.session_state.df_processed = df_processed
+                                st.success(f"Selected {len(matches)} matching records")
+                                st.experimental_rerun()
+                            
+                            if st.button("❌ Deselect All Search Results"):
+                                # Deselect all matching records
+                                mask = df_processed[desc_col].isin(matches[desc_col])
+                                df_processed.loc[mask, "keep_record"] = False
+                                st.session_state.df_processed = df_processed
+                                st.success(f"Deselected {len(matches)} matching records")
+                                st.experimental_rerun()
+                
+                with search_col3:
+                    # Quick filter buttons for common FMCG patterns
+                    st.write("**Quick Filters:**")
+                    if st.button("🌶️ Select All CHILLI"):
+                        mask = df_processed[desc_col].str.contains("CHILLI", case=False, na=False)
+                        df_processed.loc[mask, "keep_record"] = True
+                        st.session_state.df_processed = df_processed
+                        st.success("Selected all CHILLI items")
+                        st.experimental_rerun()
+                    
+                    if st.button("🧄 Select All GARLIC"):
+                        mask = df_processed[desc_col].str.contains("GARLIC", case=False, na=False)
+                        df_processed.loc[mask, "keep_record"] = True
+                        st.session_state.df_processed = df_processed
+                        st.success("Selected all GARLIC items")
+                        st.experimental_rerun()
+                    
+                    if st.button("🔤 Select All SPI- Codes"):
+                        mask = df_processed[desc_col].str.contains("SPI-", case=False, na=False)
+                        df_processed.loc[mask, "keep_record"] = True
+                        st.session_state.df_processed = df_processed
+                        st.success("Selected all SPI- codes")
+                        st.experimental_rerun()
+                    
+                    if st.button("🌍 Select All (EU-23)"):
+                        mask = df_processed[desc_col].str.contains("(EU-23)", case=False, na=False)
+                        df_processed.loc[mask, "keep_record"] = True
+                        st.session_state.df_processed = df_processed
+                        st.success("Selected all EU-23 items")
+                        st.experimental_rerun()
+                
+                # --- Pattern-based Selection ---
+                st.write("**🎯 Advanced Pattern Selection**")
+                
+                pattern_col1, pattern_col2 = st.columns(2)
+                
+                with pattern_col1:
+                    region_pattern = st.selectbox(
+                        "Select by Region/Origin:",
+                        ["All", "(ME)", "(NA)", "(CHI)", "(LOC)", "(EU-23)", "(ID)", "(MRL)"],
+                        help="Select records from specific regions"
+                    )
+                    
+                    if region_pattern != "All" and st.button(f"Select All {region_pattern} Items"):
+                        mask = df_processed[desc_col].str.contains(region_pattern, case=False, na=False)
+                        df_processed.loc[mask, "keep_record"] = True
+                        st.session_state.df_processed = df_processed
+                        count = mask.sum()
+                        st.success(f"Selected {count} items from {region_pattern}")
+                        st.experimental_rerun()
+                
+                with pattern_col2:
+                    product_category = st.selectbox(
+                        "Select by Product Category:",
+                        ["All", "DEHYDRATED", "FRESH", "SEED", "PDR", "OIL", "SALT", "SUGAR", "FLV-", "THK-", "CHILLI"],
+                        help="Select records by product type"
+                    )
+                    
+                    if product_category != "All" and st.button(f"Select All {product_category} Items"):
+                        mask = df_processed[desc_col].str.contains(product_category, case=False, na=False)
+                        df_processed.loc[mask, "keep_record"] = True
+                        st.session_state.df_processed = df_processed
+                        count = mask.sum()
+                        st.success(f"Selected {count} {product_category} items")
+                        st.experimental_rerun()
+                
+                # Apply all filters
                 filtered_df = df_processed[
                     (df_processed["duplicate_status"].isin(status_filter)) &
                     (df_processed["similarity_score"] >= similarity_range[0]) &
                     (df_processed["similarity_score"] <= similarity_range[1])
                 ]
                 
+                # Apply search filter if search text is provided
+                if search_text:
+                    if search_mode == "Contains":
+                        search_mask = filtered_df[desc_col].str.contains(search_text, case=False, na=False)
+                    elif search_mode == "Starts with":
+                        search_mask = filtered_df[desc_col].str.startswith(search_text, na=False)
+                    elif search_mode == "Ends with":
+                        search_mask = filtered_df[desc_col].str.endswith(search_text, na=False)
+                    else:  # Exact match
+                        search_mask = filtered_df[desc_col].str.lower() == search_text.lower()
+                    
+                    filtered_df = filtered_df[search_mask]
+                    
+                    if len(filtered_df) > 0:
+                        st.info(f"🔍 Showing {len(filtered_df)} records matching '{search_text}'")
+                    else:
+                        st.warning(f"🔍 No records found matching '{search_text}'")
+                
                 if show_only_selected:
                     filtered_df = filtered_df[filtered_df["keep_record"] == True]
                 
                 # --- Bulk Actions ---
-                st.subheader("⚡ Bulk Actions")
+                st.subheader("⚡ Bulk Selection Actions")
                 
-                col1, col2, col3 = st.columns(3)
+                st.write("**General Actions:**")
+                bulk_col1, bulk_col2, bulk_col3 = st.columns(3)
                 
-                with col1:
+                with bulk_col1:
                     if st.button("✅ Keep Only Unique Records"):
                         df_processed["keep_record"] = df_processed["duplicate_status"] == "unique"
                         st.session_state.df_processed = df_processed
                         st.success("Selected all unique records")
                         st.experimental_rerun()
                 
-                with col2:
+                with bulk_col2:
                     if st.button("🔄 Keep All Records"):
                         df_processed["keep_record"] = True
                         st.session_state.df_processed = df_processed
                         st.success("Selected all records")
                         st.experimental_rerun()
                 
-                with col3:
+                with bulk_col3:
                     if st.button("❌ Deselect All Duplicates"):
                         df_processed["keep_record"] = df_processed["duplicate_status"] == "unique"
                         st.session_state.df_processed = df_processed
                         st.success("Deselected all duplicate records")
                         st.experimental_rerun()
+                
+                # Show current selection stats
+                selected_count = len(df_processed[df_processed["keep_record"] == True])
+                total_count = len(df_processed)
+                reduction = (1 - selected_count/total_count) * 100
+                st.write(f"**Current Selection**: {selected_count}/{total_count} records ({reduction:.1f}% reduction)")
                 
                 # --- Data Preview ---
                 st.subheader("📋 Data Analysis")
@@ -391,7 +568,7 @@ if uploaded_file:
                     return df_to_style.style.apply(highlight_rows, axis=1)
                 
                 styled_df = style_dataframe(filtered_df[display_cols])
-                st.dataframe(styled_df, height=400)
+                st.dataframe(styled_df)
                 
                 # Color legend
                 st.markdown("""
@@ -454,10 +631,137 @@ if uploaded_file:
                             export_df = export_df.drop(columns=[col for col in analysis_cols 
                                                               if col in export_df.columns])
                         
-                        # Generate Excel file
+                        # Prepare export data
+                        if export_option == "Selected Records Only":
+                            export_df = df_processed[df_processed["keep_record"] == True].copy()
+                        elif export_option == "Unique Records Only":
+                            export_df = df_processed[df_processed["duplicate_status"] == "unique"].copy()
+                        else:
+                            export_df = df_processed.copy()
+                        
+                        # Remove analysis columns if not needed
+                        if not include_analysis:
+                            analysis_cols = ["similarity_score", "duplicate_status", "confidence", 
+                                           "best_match_index", "keep_record"]
+                            export_df = export_df.drop(columns=[col for col in analysis_cols 
+                                                              if col in export_df.columns])
+                        
+                        # Clean data for Excel export - handle NaN and infinite values
+                        export_df = export_df.replace([np.inf, -np.inf], np.nan)  # Replace inf with NaN
+                        export_df = export_df.fillna('')  # Replace NaN with empty string
+                        
+                        # Ensure numeric columns are properly formatted
+                        numeric_cols = export_df.select_dtypes(include=[np.number]).columns
+                        for col in numeric_cols:
+                            export_df[col] = pd.to_numeric(export_df[col], errors='coerce').fillna(0)
+                        
+                        # Generate Excel file with enhanced formatting
                         output = BytesIO()
-                        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
                             export_df.to_excel(writer, sheet_name="FMCG_Cleaned_Data", index=False)
+                            
+                            workbook = writer.book
+                            worksheet = writer.sheets["FMCG_Cleaned_Data"]
+                            
+                            # Define color formats matching the view
+                            color_formats = {
+                                "unique": workbook.add_format({"bg_color": "#f0f0f0", "border": 1}),  # Light gray
+                                "exact": workbook.add_format({"bg_color": "#ffcdd2", "border": 1}),   # Light red
+                                "high": workbook.add_format({"bg_color": "#ffe0b2", "border": 1}),    # Light orange
+                                "medium": workbook.add_format({"bg_color": "#fff9c4", "border": 1}),  # Light yellow
+                                "low": workbook.add_format({"bg_color": "#e8f5e8", "border": 1}),     # Light green
+                                "default": workbook.add_format({"border": 1})
+                            }
+                            
+                            # Apply row coloring based on similarity scores
+                            for row_idx in range(len(export_df)):
+                                try:
+                                    if "duplicate_status" in export_df.columns and "similarity_score" in export_df.columns:
+                                        status = export_df.iloc[row_idx]["duplicate_status"]
+                                        score = export_df.iloc[row_idx]["similarity_score"]
+                                        
+                                        # Determine format based on status and score
+                                        if status == "unique":
+                                            format_to_use = color_formats["unique"]
+                                        elif score >= 0.95:
+                                            format_to_use = color_formats["exact"]
+                                        elif score >= 0.8:
+                                            format_to_use = color_formats["high"]
+                                        elif score >= 0.6:
+                                            format_to_use = color_formats["medium"]
+                                        elif score >= 0.4:
+                                            format_to_use = color_formats["low"]
+                                        else:
+                                            format_to_use = color_formats["default"]
+                                    else:
+                                        format_to_use = color_formats["default"]
+                                    
+                                    # Apply format to entire row
+                                    for col_idx in range(len(export_df.columns)):
+                                        cell_value = export_df.iloc[row_idx, col_idx]
+                                        # Convert to string to avoid NaN issues
+                                        if pd.isna(cell_value):
+                                            cell_value = ""
+                                        worksheet.write(row_idx + 1, col_idx, str(cell_value), format_to_use)
+                                        
+                                except Exception as row_error:
+                                    # If individual row fails, continue with default formatting
+                                    for col_idx in range(len(export_df.columns)):
+                                        cell_value = str(export_df.iloc[row_idx, col_idx]) if not pd.isna(export_df.iloc[row_idx, col_idx]) else ""
+                                        worksheet.write(row_idx + 1, col_idx, cell_value, color_formats["default"])
+                            
+                            # Auto-adjust column widths
+                            for col_idx, col in enumerate(export_df.columns):
+                                try:
+                                    max_length = max(
+                                        export_df[col].astype(str).map(len).max(),
+                                        len(str(col))
+                                    )
+                                    worksheet.set_column(col_idx, col_idx, min(max_length + 2, 50))
+                                except:
+                                    worksheet.set_column(col_idx, col_idx, 15)  # Default width
+                            
+                            # Add a legend sheet
+                            legend_sheet = workbook.add_worksheet("Color_Legend")
+                            
+                            # Header
+                            header_format = workbook.add_format({"bold": True, "font_size": 14, "bg_color": "#e0e0e0"})
+                            legend_sheet.write(0, 0, "FMCG Duplicate Detection - Color Legend", header_format)
+                            
+                            # Legend entries
+                            legend_data = [
+                                ("Status/Similarity", "Color", "Description"),
+                                ("Unique Records", "Light Gray", "No similar records found"),
+                                ("Exact Duplicates (95-100%)", "Light Red", "Nearly identical descriptions"),
+                                ("High Similarity (80-95%)", "Light Orange", "Very similar, likely duplicates"),
+                                ("Medium Similarity (60-80%)", "Light Yellow", "Moderately similar, review needed"),
+                                ("Low Similarity (40-60%)", "Light Green", "Some similarity, probably different"),
+                            ]
+                            
+                            for i, (status, color, desc) in enumerate(legend_data):
+                                if i == 0:  # Header row
+                                    format_obj = workbook.add_format({"bold": True, "border": 1})
+                                elif "Unique" in status:
+                                    format_obj = color_formats["unique"]
+                                elif "Exact" in status:
+                                    format_obj = color_formats["exact"]
+                                elif "High" in status:
+                                    format_obj = color_formats["high"]
+                                elif "Medium" in status:
+                                    format_obj = color_formats["medium"]
+                                elif "Low" in status:
+                                    format_obj = color_formats["low"]
+                                else:
+                                    format_obj = workbook.add_format({"border": 1})
+                                
+                                legend_sheet.write(i + 2, 0, status, format_obj)
+                                legend_sheet.write(i + 2, 1, color, format_obj)
+                                legend_sheet.write(i + 2, 2, desc, format_obj)
+                            
+                            # Set column widths for legend
+                            legend_sheet.set_column(0, 0, 25)
+                            legend_sheet.set_column(1, 1, 15)
+                            legend_sheet.set_column(2, 2, 35)
                         
                         excel_data = output.getvalue()
                         
