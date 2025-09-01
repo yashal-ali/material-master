@@ -21,7 +21,7 @@ def preprocess_text(text: str) -> str:
     
     # Remove common FMCG-specific noise words
     noise_words = {
-        'pack', 'pkt', 'packet', 'bottle', 'jar', 'can', 'box', 'tube', 'sachet',
+        'bottle', 'jar', 'box', 'tube', 'sachet',
         'ml', 'gm', 'kg', 'ltr', 'litre', 'gram', 'kilogram', 'milliliter',
         'pc', 'pcs', 'piece', 'pieces', 'unit', 'units', 'each'
     }
