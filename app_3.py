@@ -6,9 +6,9 @@ from io import BytesIO
 import numpy as np
 from typing import List, Tuple, Dict
 
-st.set_page_config(page_title="FMCG Duplicate Detection Tool", layout="wide")
+st.set_page_config(page_title=" Material Master Cleansing (Raw Data) Tool", layout="wide")
 
-st.title("🏭 FMCG Duplicate Detection Tool")
+st.title("🏭 Material Master Cleansing (Raw Material) Tool")
 st.write("Advanced Material Description Analysis & Duplicate Management")
 
 # --- Helper functions ---
