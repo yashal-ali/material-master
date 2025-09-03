@@ -215,7 +215,7 @@ similarity_threshold = st.sidebar.slider(
 uploaded_file = st.file_uploader(
     "📊 Upload Excel/CSV File", 
     type=["xlsx", "xls", "csv"],
-    help="Upload your FMCG inventory file with material descriptions"
+    help="Upload your Material Master data file with material descriptions column"
 )
 
 if uploaded_file:
@@ -820,15 +820,8 @@ else:
     2. **⚙️ Configure** the similarity threshold (0.8 recommended for most cases)
     3. **🔍 Analyze** - Click the "Analyze Duplicates" button
     4. **🎯 Filter** results using the available options
-    5. **⚡ Use bulk actions** to quickly select records to keep
     6. **📥 Export** your cleaned data
     
-    ### 🧠 **Smart Detection Features**
-    - **Brand Recognition**: Identifies and compares product brands
-    - **Size Standardization**: Normalizes different unit formats (ml, gm, etc.)
-    - **Noise Filtering**: Removes common packaging terms
-    - **Feature Extraction**: Analyzes core product characteristics
-    - **Weighted Scoring**: Prioritizes important attributes
     
     ### 📊 **Understanding Similarity Scores**
     - **0.95-1.0**: Exact or near-exact duplicates
@@ -851,11 +844,11 @@ else:
     sample_data = pd.DataFrame({
         "Material Code": ["MAT001", "MAT002", "MAT003"],
         "Material Description": [
-            "Coca Cola 330ml Bottle Pack",
-            "Coca-Cola 330 ml Bottle Package", 
-            "Pepsi 500ml Plastic Bottle"
+            "Mayo 330ml Bottle Pack",
+            "Mayo 330 ml Bottle Package", 
+            "ketchup 500ml Plastic Bottle"
         ],
-        "Category": ["Beverages", "Beverages", "Beverages"],
+        "Category": ["", "", ""],
         "Price": [25.50, 25.50, 30.00]
     })
     st.dataframe(sample_data)
